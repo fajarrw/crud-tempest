@@ -10,4 +10,4 @@ vendor/
 log/
 *.local.config.php
 *.dev.config.php
-.vscode
+/.vscode
