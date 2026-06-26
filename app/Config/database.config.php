@@ -1,12 +1,11 @@
 <?php
 
 use Tempest\Database\Config\MysqlConfig;
-use function Tempest\env;
 
 return new MysqlConfig(
-    host: env('DB_HOST'),
-    port: (int) env('DB_PORT'),
-    username: env('DB_USER'),
-    password: env('DB_PASSWORD'),
-    database: env('DB_NAME'),
+    host: $_ENV['DB_HOST'],
+    port: (int) $_ENV['DB_PORT'],
+    username: $_ENV['DB_USER'],
+    password: $_ENV['DB_PASSWORD'],
+    database: $_ENV['DB_NAME'],
 );
