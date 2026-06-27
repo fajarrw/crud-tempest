@@ -3,9 +3,9 @@
 namespace App\Controllers;
 
 use App\Models\Category;
-use App\Models\CategoryRequest;
 
 use Tempest\Http\Response;
+use Tempest\Http\Request;
 use Tempest\Http\GenericResponse;
 use Tempest\Http\Status;
 
@@ -40,13 +40,15 @@ final class CategoryController
 
     #[Post('/items')]
     #[WithoutMiddleware(PreventCrossSiteRequestsMiddleware::class)]
-    public function create(CategoryRequest $request): Response
+    public function create(Request $request): Response
     {
+        $body = $request->body;
+
         $category = query(Category::class)->create(
-            cat_title: $request->title,
-            cat_pages: $request->pages,
-            cat_subcats: $request->subcats,
-            cat_files: $request->files1,
+            cat_title: (string) ($body['title'] ?? ''),
+            cat_pages: (int) ($body['pages'] ?? 0),
+            cat_subcats: (int) ($body['subcats'] ?? 0),
+            cat_files: (int) ($body['files'] ?? 0),
         );
 
         return new GenericResponse(
@@ -59,9 +61,10 @@ final class CategoryController
     #[WithoutMiddleware(PreventCrossSiteRequestsMiddleware::class)]
     public function update(
         int $id,
-        CategoryRequest $request,
+        Request $request,
     ): Response {
 
+        $body = $request->body;
         $category = query(Category::class)->findById($id);
 
         if ($category === null) {
@@ -73,18 +76,15 @@ final class CategoryController
 
         query($category)
             ->update(
-                cat_title: $request->title,
-                cat_pages: $request->pages,
-                cat_subcats: $request->subcats,
-                cat_files: $request->files1,
+                cat_title: (string) ($body['title'] ?? $category->cat_title),
+                cat_pages: (int) ($body['pages'] ?? $category->cat_pages),
+                cat_subcats: (int) ($body['subcats'] ?? $category->cat_subcats),
+                cat_files: (int) ($body['files'] ?? $category->cat_files),
             )
             ->execute();
 
-        $updated = query(Category::class)->findById($id);
-
         return new GenericResponse(
-            status: Status::CREATED,
-            body: $updated->toApi(),
+            status: Status::NO_CONTENT,
         );
     }
 

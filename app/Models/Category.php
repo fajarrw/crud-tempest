@@ -9,13 +9,9 @@ use Tempest\Database\Table;
 final class Category
 {
     public ?PrimaryKey $cat_id = null;
-
     public string $cat_title;
-
     public int $cat_pages;
-
     public int $cat_subcats;
-
     public int $cat_files;
 
     public function toApi(): array
