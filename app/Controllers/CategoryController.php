@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Repositories\CategoryRepository;
 use App\Models\Category;
 
 use Tempest\Http\Response;
@@ -16,14 +17,16 @@ use Tempest\Router\Put;
 use Tempest\Router\WithoutMiddleware;
 use Tempest\Router\PreventCrossSiteRequestsMiddleware;
 
-use function Tempest\Database\query;
-
 final class CategoryController
 {
+    public function __construct(
+        private readonly CategoryRepository $categoryRepository,
+    ) {}
+
     #[Get('/items/{id}')]
     public function get(int $id): Response
     {
-        $category = query(Category::class)->findById($id);
+        $category = $this->categoryRepository->findById($id);
 
         if ($category === null) {
             return new GenericResponse(
@@ -44,12 +47,13 @@ final class CategoryController
     {
         $body = $request->body;
 
-        $category = query(Category::class)->create(
-            cat_title: (string) ($body['title'] ?? ''),
-            cat_pages: (int) ($body['pages'] ?? 0),
-            cat_subcats: (int) ($body['subcats'] ?? 0),
-            cat_files: (int) ($body['files'] ?? 0),
-        );
+        $newCategory = new Category();
+        $newCategory->cat_title = (string) ($body['title'] ?? '');
+        $newCategory->cat_pages = (int) ($body['pages'] ?? 0);
+        $newCategory->cat_subcats = (int) ($body['subcats'] ?? 0);
+        $newCategory->cat_files = (int) ($body['files'] ?? 0);
+
+        $category = $this->categoryRepository->create($newCategory);
 
         return new GenericResponse(
             status: Status::CREATED,
@@ -65,7 +69,7 @@ final class CategoryController
     ): Response {
 
         $body = $request->body;
-        $category = query(Category::class)->findById($id);
+        $category = $this->categoryRepository->findById($id);
 
         if ($category === null) {
             return new GenericResponse(
@@ -74,36 +78,26 @@ final class CategoryController
             );
         }
 
-        query($category)
-            ->update(
-                cat_title: (string) ($body['title'] ?? $category->cat_title),
-                cat_pages: (int) ($body['pages'] ?? $category->cat_pages),
-                cat_subcats: (int) ($body['subcats'] ?? $category->cat_subcats),
-                cat_files: (int) ($body['files'] ?? $category->cat_files),
-            )
-            ->execute();
+        $category->cat_title = (string) ($body['title'] ?? $category->cat_title);
+        $category->cat_pages = (int) ($body['pages'] ?? $category->cat_pages);
+        $category->cat_subcats = (int) ($body['subcats'] ?? $category->cat_subcats);
+        $category->cat_files = (int) ($body['files'] ?? $category->cat_files);
 
-        return new GenericResponse(
-            status: Status::NO_CONTENT,
-        );
+        $this->categoryRepository->update($id, $category);
+
+        return new GenericResponse(status: Status::NO_CONTENT);
     }
 
     #[Delete('/items/{id}')]
     #[WithoutMiddleware(PreventCrossSiteRequestsMiddleware::class)]
     public function delete(int $id): Response
     {
-        $category = query(Category::class)->findById($id);
-
-        if ($category === null) {
+        if (! $this->categoryRepository->delete($id)) {
             return new GenericResponse(
                 status: Status::NOT_FOUND,
                 body: ['message' => 'Category not found'],
             );
         }
-
-        query($category)
-            ->delete()
-            ->execute();
 
         return new GenericResponse(
             status: Status::NO_CONTENT,
