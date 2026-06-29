@@ -36,7 +36,7 @@ final class CategoryController
         }
 
         return new GenericResponse(
-            status: Status::FOUND,
+            status: Status::OK,
             body: $category->toApi(),
         );
     }
@@ -53,7 +53,8 @@ final class CategoryController
         $newCategory->cat_subcats = (int) ($body['subcats'] ?? 0);
         $newCategory->cat_files = (int) ($body['files'] ?? 0);
 
-        $category = $this->categoryRepository->create($newCategory);
+        $id = $this->categoryRepository->create($newCategory);
+        $category = $this->categoryRepository->findById($id);
 
         return new GenericResponse(
             status: Status::CREATED,
@@ -83,7 +84,12 @@ final class CategoryController
         $category->cat_subcats = (int) ($body['subcats'] ?? $category->cat_subcats);
         $category->cat_files = (int) ($body['files'] ?? $category->cat_files);
 
-        $this->categoryRepository->update($id, $category);
+        if (! $this->categoryRepository->update($id, $category)){
+            return new GenericResponse(
+                status: Status::INTERNAL_SERVER_ERROR,
+                body: ['message' => 'Update failed'],
+            );
+        }
 
         return new GenericResponse(status: Status::NO_CONTENT);
     }
@@ -92,10 +98,19 @@ final class CategoryController
     #[WithoutMiddleware(PreventCrossSiteRequestsMiddleware::class)]
     public function delete(int $id): Response
     {
-        if (! $this->categoryRepository->delete($id)) {
+        $category = $this->categoryRepository->findById($id);
+
+        if ($category === null) {
             return new GenericResponse(
                 status: Status::NOT_FOUND,
                 body: ['message' => 'Category not found'],
+            );
+        }
+
+        if (! $this->categoryRepository->delete($id)) {
+            return new GenericResponse(
+                status: Status::NOT_FOUND,
+                body: ['message' => 'Deletion failed'],
             );
         }
 

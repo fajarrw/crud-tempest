@@ -24,4 +24,17 @@ final class Category
             'files' => $this->cat_files,
         ];
     }
+
+    public function fromMap(array $row): Category
+    {
+        $category = new Category();
+
+        $category->cat_id = PrimaryKey::tryFrom($row['cat_id']);
+        $category->cat_title = $row['cat_title'];
+        $category->cat_pages = (int) $row['cat_pages'];
+        $category->cat_subcats = (int) $row['cat_subcats'];
+        $category->cat_files = (int) $row['cat_files'];
+
+        return $category;
+    }
 }

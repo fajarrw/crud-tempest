@@ -11,89 +11,105 @@ final readonly class CategoryRepository
 {
     public function __construct(
         private Database $database,
+        private Category $category
     ) {}
 
     public function findById(int $id): ?Category
     {
-        $row = $this->database->fetchFirst(
-            new Query(
-                sql: 'SELECT cat_id, cat_title, cat_pages, cat_subcats, cat_files
-                    FROM category
-                    WHERE cat_id = ?',
-                bindings: [$id],
-            )
-        );
+        try {
+            $row = $this->database->fetchFirst(
+                new Query(
+                    sql: 'SELECT cat_id, cat_title, cat_pages, cat_subcats, cat_files
+                        FROM category
+                        WHERE cat_id = ?',
+                    bindings: [$id],
+                )
+            );
+        } catch (\Throwable $e) {
+            $this->logger->error('DB error in findById: ' . $e->getMessage());
+            throw $e;
+        }
 
         if ($row === null) {
             return null;
         }
 
-        $category = new Category();
-        $category->cat_id = PrimaryKey::tryFrom($row['cat_id']);
-        $category->cat_title = $row['cat_title'];
-        $category->cat_pages = (int) $row['cat_pages'];
-        $category->cat_subcats = (int) $row['cat_subcats'];
-        $category->cat_files = (int) $row['cat_files'];
-
-        return $category;    
+        return $this->category->fromMap($row);
     }
 
-    public function create(Category $category): Category
+    public function create(Category $category): int
     {
-        $this->database->execute(
-            new Query(
-                sql: 'INSERT INTO category (cat_title, cat_pages, cat_subcats, cat_files)
-                    VALUES (?, ?, ?, ?)',
-                bindings: [
-                    $category->cat_title,
-                    $category->cat_pages,
-                    $category->cat_subcats,
-                    $category->cat_files,
-                ],
-            )
-        );
+        try {
+            $this->database->execute(
+                new Query(
+                    sql: 'INSERT INTO category (cat_title, cat_pages, cat_subcats, cat_files)
+                        VALUES (?, ?, ?, ?)',
+                    bindings: [
+                        $category->cat_title,
+                        $category->cat_pages,
+                        $category->cat_subcats,
+                        $category->cat_files,
+                    ],
+                )
+            );
 
-        $id = $this->database->getLastInsertId();
+            $id = $this->database->getLastInsertId();
 
-        return $this->findById($id->value);
-    }
+            if ($id === null) {
+                $this->logger->error('Insert succeeded but no last insert ID returned');
+                throw new \RuntimeException('Failed to retrieve inserted ID');
+            }
 
-    public function update(int $id, Category $category): ?Category
-    {
-        if ($this->findById($id) === null) {
-            return null;
+            return $id->value;
+
+        } catch (\Throwable $e) {
+            $this->logger->error(
+                'Error creating category: ' . $e->getMessage(),
+                ['exception' => $e]
+            );
+
+            throw $e;
         }
+    }
 
-        $this->database->execute(
-            new Query(
-                sql: 'UPDATE category
+    public function update(int $id, Category $category): bool
+    {
+        try {
+            $this->database->execute(
+                new Query(
+                    sql: 'UPDATE category
                     SET cat_title = ?, cat_pages = ?, cat_subcats = ?, cat_files = ?
                     WHERE cat_id = ?',
-                bindings: [
-                    $category->cat_title,
-                    $category->cat_pages,
-                    $category->cat_subcats,
-                    $category->cat_files,
-                    $id,
-                ],
-            )
-        );
+                    bindings: [
+                        $category->cat_title,
+                        $category->cat_pages,
+                        $category->cat_subcats,
+                        $category->cat_files,
+                        $id,
+                    ],
+                )
+            );
+        } catch (\Exception $e) {
+            $this->logger->error("Error updating category with ID {$id}: " . $e->getMessage());
+            return false;
+        }
 
-        return $this->findById($id);
+        return true;
     }
 
     public function delete(int $id): bool
     {
-        if ($this->findById($id) === null) {
+        try {
+            $this->database->execute(
+                new Query(
+                    sql: 'DELETE FROM category WHERE cat_id = ?',
+                    bindings: [$id],
+                )
+            );
+        } catch (\Exception $e) {
+            $this->logger->error("Error deleting category with ID {$id}: " . $e->getMessage());
             return false;
         }
-
-        $this->database->execute(
-            new Query(
-                sql: 'DELETE FROM category WHERE cat_id = ?',
-                bindings: [$id],
-            )
-        );
 
         return true;
     }
